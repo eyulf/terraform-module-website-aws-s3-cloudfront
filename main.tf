@@ -1,15 +1,39 @@
-locals {
-  origin_id = "S3-${var.domain}"
-
-  tags = {
-    role   = "website"
-    domain = var.domain
-  }
-}
+/*
+ * Provider Configuration
+ */
 
 provider "aws" {
   alias = "virginia"
   region = "us-east-1"
+}
+
+/*
+ * IAM Configuration
+ */
+
+### IAM Uploader user and group
+
+resource "aws_iam_group" "default" {
+  name = var.user_group
+}
+
+resource "aws_iam_user" "default" {
+  name = "s3_uploader_${var.domain}"
+  path = "/websites/"
+
+  tags = local.tags
+}
+
+resource "aws_iam_user_group_membership" "default" {
+  user = aws_iam_user.default.name
+
+  groups = [
+    aws_iam_group.default.name,
+  ]
+}
+
+resource "aws_iam_access_key" "default" {
+  user = aws_iam_user.default.name
 }
 
 data "aws_iam_policy_document" "user" {
@@ -26,6 +50,14 @@ data "aws_iam_policy_document" "user" {
     ]
   }
 }
+
+resource "aws_iam_user_policy" "default" {
+  name   = "s3_uploader_${var.domain}"
+  user   = aws_iam_user.default.name
+  policy = data.aws_iam_policy_document.user.json
+}
+
+### S3 Bucket Policies
 
 data "aws_iam_policy_document" "website" {
   statement {
@@ -49,7 +81,6 @@ data "aws_iam_policy_document" "website" {
   }
 }
 
-//**************************************************************************************************
 data "aws_iam_policy_document" "website_redirect" {
   statement {
     actions = ["s3:GetObject"]
@@ -72,7 +103,6 @@ data "aws_iam_policy_document" "website_redirect" {
   }
 }
 
-//**************************************************************************************************
 data "aws_iam_policy_document" "website_staging" {
   statement {
     actions = ["s3:GetObject"]
@@ -95,46 +125,15 @@ data "aws_iam_policy_document" "website_staging" {
   }
 }
 
-/***************************************************************************************************
- * IAM User
+/*
+ * S3 Bucket Configuration
  */
 
-resource "aws_iam_group" "default" {
-  name = var.user_group
-}
-
-resource "aws_iam_user" "default" {
-  name = "s3_uploader_${var.domain}"
-  path = "/websites/"
-  tags = local.tags
-}
-
-resource "aws_iam_user_group_membership" "default" {
-  user = aws_iam_user.default.name
-
-  groups = [
-    aws_iam_group.default.name,
-  ]
-}
-
-resource "aws_iam_access_key" "default" {
-  user = aws_iam_user.default.name
-}
-
-resource "aws_iam_user_policy" "default" {
-  name   = "s3_uploader_${var.domain}"
-  user   = aws_iam_user.default.name
-  policy = data.aws_iam_policy_document.user.json
-}
-
-/***************************************************************************************************
- * S3 Bucket
- */
+### Production S3 Bucket
 
 resource "aws_s3_bucket" "default" {
   bucket = var.domain
   acl    = "public-read"
-  tags   = local.tags
 
   website {
     index_document = "index.html"
@@ -159,6 +158,8 @@ resource "aws_s3_bucket" "default" {
       expired_object_delete_marker = true
     }
   }
+
+  tags = local.tags
 }
 
 resource "aws_s3_bucket_policy" "default" {
@@ -166,15 +167,17 @@ resource "aws_s3_bucket_policy" "default" {
   policy = data.aws_iam_policy_document.website.json
 }
 
-//**************************************************************************************************
+### Production (Redirect) S3 Bucket
+
 resource "aws_s3_bucket" "default_redirect" {
   bucket = "www.${var.domain}"
   acl    = "public-read"
-  tags   = local.tags
 
   website {
     redirect_all_requests_to = "https://${var.domain}"
   }
+
+  tags = local.tags
 }
 
 resource "aws_s3_bucket_policy" "default_redirect" {
@@ -182,11 +185,11 @@ resource "aws_s3_bucket_policy" "default_redirect" {
   policy = data.aws_iam_policy_document.website_redirect.json
 }
 
-//**************************************************************************************************
+### Staging S3 Bucket
+
 resource "aws_s3_bucket" "staging" {
   bucket = "staging.${var.domain}"
   acl    = "public-read"
-  tags   = local.tags
 
   website {
     index_document = "index.html"
@@ -211,6 +214,8 @@ resource "aws_s3_bucket" "staging" {
       expired_object_delete_marker = true
     }
   }
+
+  tags = local.tags
 }
 
 resource "aws_s3_bucket_policy" "staging" {
@@ -218,52 +223,18 @@ resource "aws_s3_bucket_policy" "staging" {
   policy = data.aws_iam_policy_document.website_staging.json
 }
 
-/***************************************************************************************************
- * SSL Certificate
+/*
+ * Cloudfront Configuration
  */
 
-resource "aws_acm_certificate" "default" {
-  provider = aws.virginia
-
-  domain_name = var.domain
-  subject_alternative_names = [
-    "www.${var.domain}",
-    "staging.${var.domain}",
-  ]
-  validation_method = "DNS"
-
-  lifecycle {
-    create_before_destroy = true
-  }
-}
-
-resource "cloudflare_record" "acm_validation" {
-  for_each = {
-    for dvo in aws_acm_certificate.default.domain_validation_options : dvo.domain_name => {
-      name   = dvo.resource_record_name
-      record = dvo.resource_record_value
-      type   = dvo.resource_record_type
-    }
-  }
-
-  zone_id = var.cloudflare_zone_id
-  name    = each.value.name
-  value   = each.value.record
-  type    = each.value.type
-  ttl     = 120
-}
-
-resource "aws_acm_certificate_validation" "default" {
-  provider = aws.virginia
-
-  certificate_arn = aws_acm_certificate.default.arn
-}
-
-/***************************************************************************************************
- * Cloudfront
- */
+### Production Cloudfront
 
 resource "aws_cloudfront_distribution" "default" {
+  aliases             = [var.domain]
+  enabled             = true
+  is_ipv6_enabled     = true
+  default_root_object = "index.html"
+
   origin {
     domain_name = aws_s3_bucket.default.website_endpoint
     origin_id = local.origin_id
@@ -275,12 +246,6 @@ resource "aws_cloudfront_distribution" "default" {
       origin_ssl_protocols = ["TLSv1.2"]
     }
   }
-
-  aliases = [var.domain]
-
-  enabled = true
-  is_ipv6_enabled = true
-  default_root_object = "index.html"
 
   default_cache_behavior {
     allowed_methods  = ["GET", "HEAD"]
@@ -313,10 +278,17 @@ resource "aws_cloudfront_distribution" "default" {
       restriction_type = "none"
     }
   }
+
+  tags = local.tags
 }
 
-//**************************************************************************************************
+### Production (Redirect) Cloudfront
+
 resource "aws_cloudfront_distribution" "default_redirect" {
+  aliases         = ["www.${var.domain}"]
+  enabled         = true
+  is_ipv6_enabled = true
+
   origin {
     domain_name = aws_s3_bucket.default_redirect.website_endpoint
     origin_id = local.origin_id
@@ -328,11 +300,6 @@ resource "aws_cloudfront_distribution" "default_redirect" {
       origin_ssl_protocols = ["TLSv1.2"]
     }
   }
-
-  aliases = ["www.${var.domain}"]
-
-  enabled = true
-  is_ipv6_enabled = true
 
   default_cache_behavior {
     allowed_methods  = ["GET", "HEAD"]
@@ -364,10 +331,18 @@ resource "aws_cloudfront_distribution" "default_redirect" {
       restriction_type = "none"
     }
   }
+
+  tags = local.tags
 }
 
-//**************************************************************************************************
+### Staging Cloudfront
+
 resource "aws_cloudfront_distribution" "staging" {
+  aliases             = ["staging.${var.domain}"]
+  enabled             = true
+  is_ipv6_enabled     = true
+  default_root_object = "index.html"
+
   origin {
     domain_name = aws_s3_bucket.staging.website_endpoint
     origin_id = local.origin_id
@@ -379,12 +354,6 @@ resource "aws_cloudfront_distribution" "staging" {
       origin_ssl_protocols = ["TLSv1.2"]
     }
   }
-
-  aliases = ["staging.${var.domain}"]
-
-  enabled = true
-  is_ipv6_enabled = true
-  default_root_object = "index.html"
 
   default_cache_behavior {
     allowed_methods  = ["GET", "HEAD"]
@@ -417,10 +386,55 @@ resource "aws_cloudfront_distribution" "staging" {
       restriction_type = "none"
     }
   }
+
+  tags = local.tags
 }
 
-/***************************************************************************************************
- * Cloudflare
+/*
+ * ACM Configuration
+ */
+
+resource "aws_acm_certificate" "default" {
+  provider = aws.virginia
+
+  domain_name       = var.domain
+  validation_method = "DNS"
+
+  subject_alternative_names = [
+    "www.${var.domain}",
+    "staging.${var.domain}",
+  ]
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+resource "cloudflare_record" "acm_validation" {
+  for_each = {
+    for dvo in aws_acm_certificate.default.domain_validation_options : dvo.domain_name => {
+      name   = dvo.resource_record_name
+      record = dvo.resource_record_value
+      type   = dvo.resource_record_type
+    }
+  }
+
+  zone_id = var.cloudflare_zone_id
+  name    = each.value.name
+  value   = each.value.record
+  type    = each.value.type
+  ttl     = 120
+}
+
+resource "aws_acm_certificate_validation" "default" {
+  provider = aws.virginia
+
+  certificate_arn = aws_acm_certificate.default.arn
+}
+
+
+/*
+ * Cloudflare Configuration
  */
 
 resource "cloudflare_record" "website_root" {

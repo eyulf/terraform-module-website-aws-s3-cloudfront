@@ -33,6 +33,8 @@ module "static_website_aws_cloudflare" {
 ```
 
 <!-- BEGINNING OF PRE-COMMIT-TERRAFORM DOCS HOOK -->
+Provider Configuration
+
 ## Requirements
 
 | Name | Version |
