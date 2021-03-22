@@ -3,7 +3,7 @@
  */
 
 provider "aws" {
-  alias = "virginia"
+  alias  = "virginia"
   region = "us-east-1"
 }
 
@@ -13,30 +13,30 @@ provider "aws" {
 
 ### IAM Uploader user and group
 
-resource "aws_iam_group" "default" {
+resource "aws_iam_group" "uploader" {
   name = var.user_group
 }
 
-resource "aws_iam_user" "default" {
+resource "aws_iam_user" "uploader" {
   name = "s3_uploader_${var.domain}"
   path = "/websites/"
 
-  tags = local.tags
+  tags = local.tags_production
 }
 
-resource "aws_iam_user_group_membership" "default" {
-  user = aws_iam_user.default.name
+resource "aws_iam_user_group_membership" "uploader" {
+  user = aws_iam_user.uploader.name
 
   groups = [
-    aws_iam_group.default.name,
+    aws_iam_group.uploader.name,
   ]
 }
 
-resource "aws_iam_access_key" "default" {
-  user = aws_iam_user.default.name
+resource "aws_iam_access_key" "uploader" {
+  user = aws_iam_user.uploader.name
 }
 
-data "aws_iam_policy_document" "user" {
+data "aws_iam_policy_document" "uploader" {
   statement {
     actions = [
       "s3:*",
@@ -51,21 +51,21 @@ data "aws_iam_policy_document" "user" {
   }
 }
 
-resource "aws_iam_user_policy" "default" {
+resource "aws_iam_user_policy" "uploader" {
   name   = "s3_uploader_${var.domain}"
-  user   = aws_iam_user.default.name
-  policy = data.aws_iam_policy_document.user.json
+  user   = aws_iam_user.uploader.name
+  policy = data.aws_iam_policy_document.uploader.json
 }
 
 ### S3 Bucket Policies
 
 data "aws_iam_policy_document" "website_production" {
   statement {
-    actions = ["s3:GetObject"]
+    actions   = ["s3:GetObject"]
     resources = ["${aws_s3_bucket.production.arn}/*"]
 
     principals {
-      type = "AWS"
+      type        = "AWS"
       identifiers = [aws_cloudfront_origin_access_identity.production.iam_arn]
     }
   }
@@ -73,11 +73,11 @@ data "aws_iam_policy_document" "website_production" {
 
 data "aws_iam_policy_document" "website_production_redirect" {
   statement {
-    actions = ["s3:GetObject"]
+    actions   = ["s3:GetObject"]
     resources = ["${aws_s3_bucket.production_redirect.arn}/*"]
 
     principals {
-      type = "AWS"
+      type        = "AWS"
       identifiers = [aws_cloudfront_origin_access_identity.production.iam_arn]
     }
   }
@@ -85,11 +85,11 @@ data "aws_iam_policy_document" "website_production_redirect" {
 
 data "aws_iam_policy_document" "website_staging" {
   statement {
-    actions = ["s3:GetObject"]
+    actions   = ["s3:GetObject"]
     resources = ["${aws_s3_bucket.staging.arn}/*"]
 
     principals {
-      type = "AWS"
+      type        = "AWS"
       identifiers = [aws_cloudfront_origin_access_identity.staging.iam_arn]
     }
   }
@@ -129,7 +129,7 @@ resource "aws_s3_bucket" "production" {
     }
   }
 
-  tags = local.tags
+  tags = local.tags_production
 }
 
 resource "aws_s3_bucket_policy" "production" {
@@ -147,7 +147,7 @@ resource "aws_s3_bucket" "production_redirect" {
     redirect_all_requests_to = "https://${var.domain}"
   }
 
-  tags = local.tags
+  tags = local.tags_production
 }
 
 resource "aws_s3_bucket_policy" "production_redirect" {
@@ -185,7 +185,7 @@ resource "aws_s3_bucket" "staging" {
     }
   }
 
-  tags = local.tags
+  tags = local.tags_staging
 }
 
 resource "aws_s3_bucket_policy" "staging" {
@@ -245,9 +245,9 @@ resource "aws_cloudfront_distribution" "production" {
   }
 
   viewer_certificate {
-    acm_certificate_arn = aws_acm_certificate_validation.default.certificate_arn
-    ssl_support_method = "sni-only"
-    minimum_protocol_version = "TLSv1.1_2016"
+    acm_certificate_arn      = aws_acm_certificate_validation.production.certificate_arn
+    ssl_support_method       = "sni-only"
+    minimum_protocol_version = "TLSv1.2_2019"
   }
 
   restrictions {
@@ -256,7 +256,7 @@ resource "aws_cloudfront_distribution" "production" {
     }
   }
 
-  tags = local.tags
+  tags = local.tags_production
 }
 
 ### Production (Redirect) Cloudfront
@@ -295,9 +295,9 @@ resource "aws_cloudfront_distribution" "production_redirect" {
   }
 
   viewer_certificate {
-    acm_certificate_arn = aws_acm_certificate_validation.default.certificate_arn
-    ssl_support_method = "sni-only"
-    minimum_protocol_version = "TLSv1.1_2016"
+    acm_certificate_arn      = aws_acm_certificate_validation.production.certificate_arn
+    ssl_support_method       = "sni-only"
+    minimum_protocol_version = "TLSv1.2_2019"
   }
 
   restrictions {
@@ -306,7 +306,7 @@ resource "aws_cloudfront_distribution" "production_redirect" {
     }
   }
 
-  tags = local.tags
+  tags = local.tags_production
 }
 
 ### Staging Cloudfront
@@ -357,9 +357,9 @@ resource "aws_cloudfront_distribution" "staging" {
   }
 
   viewer_certificate {
-    acm_certificate_arn = aws_acm_certificate_validation.default.certificate_arn
-    ssl_support_method = "sni-only"
-    minimum_protocol_version = "TLSv1.1_2016"
+    acm_certificate_arn      = aws_acm_certificate_validation.staging.certificate_arn
+    ssl_support_method       = "sni-only"
+    minimum_protocol_version = "TLSv1.2_2019"
   }
 
   restrictions {
@@ -368,32 +368,33 @@ resource "aws_cloudfront_distribution" "staging" {
     }
   }
 
-  tags = local.tags
+  tags = local.tags_staging
 }
 
 /*
  * ACM Configuration
  */
 
-resource "aws_acm_certificate" "default" {
+resource "aws_acm_certificate" "production" {
   provider = aws.virginia
 
   domain_name       = var.domain
   validation_method = "DNS"
 
   subject_alternative_names = [
-    "www.${var.domain}",
-    "staging.${var.domain}",
+    "www.${var.domain}"
   ]
 
   lifecycle {
     create_before_destroy = true
   }
+
+  tags = local.tags_production
 }
 
-resource "cloudflare_record" "acm_validation" {
+resource "cloudflare_record" "production_acm_validation" {
   for_each = {
-    for dvo in aws_acm_certificate.default.domain_validation_options : dvo.domain_name => {
+    for dvo in aws_acm_certificate.production.domain_validation_options : dvo.domain_name => {
       name   = dvo.resource_record_name
       record = dvo.resource_record_value
       type   = dvo.resource_record_type
@@ -407,12 +408,48 @@ resource "cloudflare_record" "acm_validation" {
   ttl     = 120
 }
 
-resource "aws_acm_certificate_validation" "default" {
+resource "aws_acm_certificate_validation" "production" {
   provider = aws.virginia
 
-  certificate_arn = aws_acm_certificate.default.arn
+  certificate_arn = aws_acm_certificate.production.arn
 }
 
+### Staging ACM
+
+resource "aws_acm_certificate" "staging" {
+  provider = aws.virginia
+
+  domain_name       = "staging.${var.domain}"
+  validation_method = "DNS"
+
+  lifecycle {
+    create_before_destroy = true
+  }
+
+  tags = local.tags_staging
+}
+
+resource "cloudflare_record" "staging_acm_validation" {
+  for_each = {
+    for dvo in aws_acm_certificate.staging.domain_validation_options : dvo.domain_name => {
+      name   = dvo.resource_record_name
+      record = dvo.resource_record_value
+      type   = dvo.resource_record_type
+    }
+  }
+
+  zone_id = var.cloudflare_zone_id
+  name    = each.value.name
+  value   = each.value.record
+  type    = each.value.type
+  ttl     = 120
+}
+
+resource "aws_acm_certificate_validation" "staging" {
+  provider = aws.virginia
+
+  certificate_arn = aws_acm_certificate.staging.arn
+}
 
 /*
  * Cloudflare Configuration
