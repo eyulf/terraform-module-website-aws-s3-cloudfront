@@ -12,7 +12,7 @@ output "iam_user_secret_access_key" {
 
 output "s3_bucket_prod" {
   description = "The name of the production S3 Bucket"
-  value       = aws_s3_bucket.default.bucket
+  value       = aws_s3_bucket.production.bucket
 }
 
 output "s3_bucket_staging" {

@@ -43,8 +43,8 @@ data "aws_iam_policy_document" "user" {
     ]
 
     resources = [
-      aws_s3_bucket.default.arn,
-      "${aws_s3_bucket.default.arn}/*",
+      aws_s3_bucket.production.arn,
+      "${aws_s3_bucket.production.arn}/*",
       aws_s3_bucket.staging.arn,
       "${aws_s3_bucket.staging.arn}/*",
     ]
@@ -59,46 +59,26 @@ resource "aws_iam_user_policy" "default" {
 
 ### S3 Bucket Policies
 
-data "aws_iam_policy_document" "website" {
+data "aws_iam_policy_document" "website_production" {
   statement {
     actions = ["s3:GetObject"]
-    resources = ["${aws_s3_bucket.default.arn}/*"]
+    resources = ["${aws_s3_bucket.production.arn}/*"]
 
     principals {
-      type = "*"
-      identifiers = ["*"]
-    }
-  }
-
-  statement {
-    actions = ["s3:ListBucket"]
-    resources = [aws_s3_bucket.default.arn]
-
-    principals {
-      type = "*"
-      identifiers = ["*"]
+      type = "AWS"
+      identifiers = [aws_cloudfront_origin_access_identity.production.iam_arn]
     }
   }
 }
 
-data "aws_iam_policy_document" "website_redirect" {
+data "aws_iam_policy_document" "website_production_redirect" {
   statement {
     actions = ["s3:GetObject"]
-    resources = ["${aws_s3_bucket.default_redirect.arn}/*"]
+    resources = ["${aws_s3_bucket.production_redirect.arn}/*"]
 
     principals {
-      type = "*"
-      identifiers = ["*"]
-    }
-  }
-
-  statement {
-    actions = ["s3:ListBucket"]
-    resources = [aws_s3_bucket.default_redirect.arn]
-
-    principals {
-      type = "*"
-      identifiers = ["*"]
+      type = "AWS"
+      identifiers = [aws_cloudfront_origin_access_identity.production.iam_arn]
     }
   }
 }
@@ -109,18 +89,8 @@ data "aws_iam_policy_document" "website_staging" {
     resources = ["${aws_s3_bucket.staging.arn}/*"]
 
     principals {
-      type = "*"
-      identifiers = ["*"]
-    }
-  }
-
-  statement {
-    actions = ["s3:ListBucket"]
-    resources = [aws_s3_bucket.staging.arn]
-
-    principals {
-      type = "*"
-      identifiers = ["*"]
+      type = "AWS"
+      identifiers = [aws_cloudfront_origin_access_identity.staging.iam_arn]
     }
   }
 }
@@ -131,9 +101,9 @@ data "aws_iam_policy_document" "website_staging" {
 
 ### Production S3 Bucket
 
-resource "aws_s3_bucket" "default" {
+resource "aws_s3_bucket" "production" {
   bucket = var.domain
-  acl    = "public-read"
+  acl    = "private"
 
   website {
     index_document = "index.html"
@@ -162,16 +132,16 @@ resource "aws_s3_bucket" "default" {
   tags = local.tags
 }
 
-resource "aws_s3_bucket_policy" "default" {
-  bucket = aws_s3_bucket.default.id
-  policy = data.aws_iam_policy_document.website.json
+resource "aws_s3_bucket_policy" "production" {
+  bucket = aws_s3_bucket.production.id
+  policy = data.aws_iam_policy_document.website_production.json
 }
 
 ### Production (Redirect) S3 Bucket
 
-resource "aws_s3_bucket" "default_redirect" {
+resource "aws_s3_bucket" "production_redirect" {
   bucket = "www.${var.domain}"
-  acl    = "public-read"
+  acl    = "private"
 
   website {
     redirect_all_requests_to = "https://${var.domain}"
@@ -180,16 +150,16 @@ resource "aws_s3_bucket" "default_redirect" {
   tags = local.tags
 }
 
-resource "aws_s3_bucket_policy" "default_redirect" {
-  bucket = aws_s3_bucket.default_redirect.id
-  policy = data.aws_iam_policy_document.website_redirect.json
+resource "aws_s3_bucket_policy" "production_redirect" {
+  bucket = aws_s3_bucket.production_redirect.id
+  policy = data.aws_iam_policy_document.website_production_redirect.json
 }
 
 ### Staging S3 Bucket
 
 resource "aws_s3_bucket" "staging" {
   bucket = "staging.${var.domain}"
-  acl    = "public-read"
+  acl    = "private"
 
   website {
     index_document = "index.html"
@@ -229,21 +199,22 @@ resource "aws_s3_bucket_policy" "staging" {
 
 ### Production Cloudfront
 
-resource "aws_cloudfront_distribution" "default" {
+resource "aws_cloudfront_origin_access_identity" "production" {
+  comment = var.domain
+}
+
+resource "aws_cloudfront_distribution" "production" {
   aliases             = [var.domain]
   enabled             = true
   is_ipv6_enabled     = true
   default_root_object = "index.html"
 
   origin {
-    domain_name = aws_s3_bucket.default.website_endpoint
-    origin_id = local.origin_id
+    domain_name = aws_s3_bucket.production.bucket_regional_domain_name
+    origin_id   = local.origin_id
 
-    custom_origin_config {
-      http_port = 80
-      https_port = 443
-      origin_protocol_policy = "http-only"
-      origin_ssl_protocols = ["TLSv1.2"]
+    s3_origin_config {
+      origin_access_identity = aws_cloudfront_origin_access_identity.production.cloudfront_access_identity_path
     }
   }
 
@@ -251,6 +222,12 @@ resource "aws_cloudfront_distribution" "default" {
     allowed_methods  = ["GET", "HEAD"]
     cached_methods   = ["GET", "HEAD"]
     target_origin_id = local.origin_id
+
+    lambda_function_association {
+      event_type   = "viewer-request"
+      lambda_arn   = aws_serverlessapplicationrepository_cloudformation_stack.standard_redirects_for_cloudfront.outputs["StandardRedirectsForCloudFrontVersionOutput"]
+      include_body = false
+    }
 
     forwarded_values {
       query_string = false
@@ -284,20 +261,17 @@ resource "aws_cloudfront_distribution" "default" {
 
 ### Production (Redirect) Cloudfront
 
-resource "aws_cloudfront_distribution" "default_redirect" {
+resource "aws_cloudfront_distribution" "production_redirect" {
   aliases         = ["www.${var.domain}"]
   enabled         = true
   is_ipv6_enabled = true
 
   origin {
-    domain_name = aws_s3_bucket.default_redirect.website_endpoint
-    origin_id = local.origin_id
+    domain_name = aws_s3_bucket.production_redirect.bucket_regional_domain_name
+    origin_id   = local.origin_id
 
-    custom_origin_config {
-      http_port = 80
-      https_port = 443
-      origin_protocol_policy = "http-only"
-      origin_ssl_protocols = ["TLSv1.2"]
+    s3_origin_config {
+      origin_access_identity = aws_cloudfront_origin_access_identity.production.cloudfront_access_identity_path
     }
   }
 
@@ -337,6 +311,10 @@ resource "aws_cloudfront_distribution" "default_redirect" {
 
 ### Staging Cloudfront
 
+resource "aws_cloudfront_origin_access_identity" "staging" {
+  comment = "staging.${var.domain}"
+}
+
 resource "aws_cloudfront_distribution" "staging" {
   aliases             = ["staging.${var.domain}"]
   enabled             = true
@@ -344,14 +322,11 @@ resource "aws_cloudfront_distribution" "staging" {
   default_root_object = "index.html"
 
   origin {
-    domain_name = aws_s3_bucket.staging.website_endpoint
-    origin_id = local.origin_id
+    domain_name = aws_s3_bucket.staging.bucket_regional_domain_name
+    origin_id   = local.origin_id
 
-    custom_origin_config {
-      http_port = 80
-      https_port = 443
-      origin_protocol_policy = "http-only"
-      origin_ssl_protocols = ["TLSv1.2"]
+    s3_origin_config {
+      origin_access_identity = aws_cloudfront_origin_access_identity.staging.cloudfront_access_identity_path
     }
   }
 
@@ -359,6 +334,12 @@ resource "aws_cloudfront_distribution" "staging" {
     allowed_methods  = ["GET", "HEAD"]
     cached_methods   = ["GET", "HEAD"]
     target_origin_id = local.origin_id
+
+    lambda_function_association {
+      event_type   = "viewer-request"
+      lambda_arn   = aws_serverlessapplicationrepository_cloudformation_stack.standard_redirects_for_cloudfront.outputs["StandardRedirectsForCloudFrontVersionOutput"]
+      include_body = false
+    }
 
     forwarded_values {
       query_string = false
@@ -440,7 +421,7 @@ resource "aws_acm_certificate_validation" "default" {
 resource "cloudflare_record" "website_root" {
   zone_id = var.cloudflare_zone_id
   name    = var.domain
-  value   = aws_cloudfront_distribution.default.domain_name
+  value   = aws_cloudfront_distribution.production.domain_name
   type    = "CNAME"
   ttl     = 3600
 }
@@ -448,7 +429,7 @@ resource "cloudflare_record" "website_root" {
 resource "cloudflare_record" "website_redirect" {
   zone_id = var.cloudflare_zone_id
   name    = "www"
-  value   = aws_cloudfront_distribution.default_redirect.domain_name
+  value   = aws_cloudfront_distribution.production_redirect.domain_name
   type    = "CNAME"
   ttl     = 3600
 }
@@ -459,4 +440,22 @@ resource "cloudflare_record" "website_staging" {
   value   = aws_cloudfront_distribution.staging.domain_name
   type    = "CNAME"
   ttl     = 3600
+}
+
+/*
+ * Lambda Configuration
+ */
+
+data "aws_serverlessapplicationrepository_application" "standard_redirects_for_cloudfront" {
+  provider       = aws.virginia
+  application_id = "arn:aws:serverlessrepo:us-east-1:621073008195:applications/standard-redirects-for-cloudfront"
+}
+
+resource "aws_serverlessapplicationrepository_cloudformation_stack" "standard_redirects_for_cloudfront" {
+  provider = aws.virginia
+
+  name             = "${replace(var.domain, ".", "")}-cloudfront-redirect"
+  application_id   = data.aws_serverlessapplicationrepository_application.standard_redirects_for_cloudfront.application_id
+  semantic_version = data.aws_serverlessapplicationrepository_application.standard_redirects_for_cloudfront.semantic_version
+  capabilities     = ["CAPABILITY_IAM"] # Manually set due to capability removing itself after first deploy
 }
