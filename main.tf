@@ -1,7 +1,3 @@
-terraform {
-  required_version = ">= 0.12"
-}
-
 locals {
   origin_id = "S3-${var.domain}"
 
@@ -23,9 +19,9 @@ data "aws_iam_policy_document" "user" {
     ]
 
     resources = [
-      "${aws_s3_bucket.default.arn}",
+      aws_s3_bucket.default.arn,
       "${aws_s3_bucket.default.arn}/*",
-      "${aws_s3_bucket.staging.arn}",
+      aws_s3_bucket.staging.arn,
       "${aws_s3_bucket.staging.arn}/*",
     ]
   }
@@ -228,6 +224,7 @@ resource "aws_s3_bucket_policy" "staging" {
 
 resource "aws_acm_certificate" "default" {
   provider = aws.virginia
+
   domain_name = var.domain
   subject_alternative_names = [
     "www.${var.domain}",
@@ -240,38 +237,26 @@ resource "aws_acm_certificate" "default" {
   }
 }
 
-resource "cloudflare_record" "cloudfront_validation_root" {
-  domain  = var.domain
-  name    = replace(aws_acm_certificate.default.domain_validation_options.0.resource_record_name, ".${var.domain}.", "")
-  value   = replace(aws_acm_certificate.default.domain_validation_options.0.resource_record_value, "/\\.$/", "")
-  type    = aws_acm_certificate.default.domain_validation_options.0.resource_record_type
-  ttl     = 120
-}
+resource "cloudflare_record" "acm_validation" {
+  for_each = {
+    for dvo in aws_acm_certificate.default.domain_validation_options : dvo.domain_name => {
+      name   = dvo.resource_record_name
+      record = dvo.resource_record_value
+      type   = dvo.resource_record_type
+    }
+  }
 
-resource "cloudflare_record" "cloudfront_validation_redirect" {
-  domain  = var.domain
-  name    = replace(aws_acm_certificate.default.domain_validation_options.1.resource_record_name, ".${var.domain}.", "")
-  value   = replace(aws_acm_certificate.default.domain_validation_options.1.resource_record_value, "/\\.$/", "")
-  type    = aws_acm_certificate.default.domain_validation_options.1.resource_record_type
-  ttl     = 120
-}
-
-resource "cloudflare_record" "cloudfront_validation_staging" {
-  domain  = var.domain
-  name    = replace(aws_acm_certificate.default.domain_validation_options.2.resource_record_name, ".${var.domain}.", "")
-  value   = replace(aws_acm_certificate.default.domain_validation_options.2.resource_record_value, "/\\.$/", "")
-  type    = aws_acm_certificate.default.domain_validation_options.2.resource_record_type
+  zone_id = var.cloudflare_zone_id
+  name    = each.value.name
+  value   = each.value.record
+  type    = each.value.type
   ttl     = 120
 }
 
 resource "aws_acm_certificate_validation" "default" {
   provider = aws.virginia
+
   certificate_arn = aws_acm_certificate.default.arn
-  validation_record_fqdns = [
-    cloudflare_record.cloudfront_validation_root.hostname,
-    cloudflare_record.cloudfront_validation_redirect.hostname,
-    cloudflare_record.cloudfront_validation_staging.hostname,
-  ]
 }
 
 /***************************************************************************************************
@@ -439,7 +424,7 @@ resource "aws_cloudfront_distribution" "staging" {
  */
 
 resource "cloudflare_record" "website_root" {
-  domain  = var.domain
+  zone_id = var.cloudflare_zone_id
   name    = var.domain
   value   = aws_cloudfront_distribution.default.domain_name
   type    = "CNAME"
@@ -447,7 +432,7 @@ resource "cloudflare_record" "website_root" {
 }
 
 resource "cloudflare_record" "website_redirect" {
-  domain  = var.domain
+  zone_id = var.cloudflare_zone_id
   name    = "www"
   value   = aws_cloudfront_distribution.default_redirect.domain_name
   type    = "CNAME"
@@ -455,7 +440,7 @@ resource "cloudflare_record" "website_redirect" {
 }
 
 resource "cloudflare_record" "website_staging" {
-  domain  = var.domain
+  zone_id = var.cloudflare_zone_id
   name    = "staging"
   value   = aws_cloudfront_distribution.staging.domain_name
   type    = "CNAME"

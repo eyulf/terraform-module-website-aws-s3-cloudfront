@@ -16,9 +16,9 @@ This module will configure multiple S3 buckets with website hosting enabled. Clo
 
 A bucket is created for the following domains.
 
-- <domain>
-- www.<domain>
-- staging.<domain>
+- <DOMAIN>
+- www.<DOMAIN>
+- staging.<DOMAIN>
 
 This _may_ cost less then approximately USD$0.12 per month for a website with very minimal traffic.
 
@@ -26,8 +26,9 @@ This _may_ cost less then approximately USD$0.12 per month for a website with ve
 
 ```hcl
 module "static_website_aws_cloudflare" {
-  source  = "path/to/module"
-  domain  = "example.com"
+  source             = "path/to/module"
+  domain             = "example.com"
+  cloudflare_zone_id = <CLOUDFLARE ZONE ID>
 }
 ```
 
@@ -36,15 +37,17 @@ module "static_website_aws_cloudflare" {
 
 | Name | Version |
 |------|---------|
-| terraform | >= 0.12 |
+| terraform | >= 0.13.0 |
+| aws | ~> 3.0 |
+| cloudflare | ~> 2.0 |
 
 ## Providers
 
 | Name | Version |
 |------|---------|
-| aws | n/a |
-| aws.virginia | n/a |
-| cloudflare | n/a |
+| aws | ~> 3.0 |
+| aws.virginia | ~> 3.0 |
+| cloudflare | ~> 2.0 |
 
 ## Modules
 
@@ -54,25 +57,26 @@ No Modules.
 
 | Name |
 |------|
-| [aws_acm_certificate_validation](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/acm_certificate_validation) |
-| [aws_acm_certificate](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/acm_certificate) |
-| [aws_cloudfront_distribution](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudfront_distribution) |
-| [aws_iam_access_key](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_access_key) |
-| [aws_iam_group](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_group) |
-| [aws_iam_policy_document](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/iam_policy_document) |
-| [aws_iam_user_group_membership](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_user_group_membership) |
-| [aws_iam_user_policy](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_user_policy) |
-| [aws_iam_user](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_user) |
-| [aws_s3_bucket_policy](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket_policy) |
-| [aws_s3_bucket](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket) |
-| [cloudflare_record](https://registry.terraform.io/providers/hashicorp/cloudflare/latest/docs/resources/record) |
+| [aws_acm_certificate_validation](https://registry.terraform.io/providers/hashicorp/aws/3.0/docs/resources/acm_certificate_validation) |
+| [aws_acm_certificate](https://registry.terraform.io/providers/hashicorp/aws/3.0/docs/resources/acm_certificate) |
+| [aws_cloudfront_distribution](https://registry.terraform.io/providers/hashicorp/aws/3.0/docs/resources/cloudfront_distribution) |
+| [aws_iam_access_key](https://registry.terraform.io/providers/hashicorp/aws/3.0/docs/resources/iam_access_key) |
+| [aws_iam_group](https://registry.terraform.io/providers/hashicorp/aws/3.0/docs/resources/iam_group) |
+| [aws_iam_policy_document](https://registry.terraform.io/providers/hashicorp/aws/3.0/docs/data-sources/iam_policy_document) |
+| [aws_iam_user_group_membership](https://registry.terraform.io/providers/hashicorp/aws/3.0/docs/resources/iam_user_group_membership) |
+| [aws_iam_user_policy](https://registry.terraform.io/providers/hashicorp/aws/3.0/docs/resources/iam_user_policy) |
+| [aws_iam_user](https://registry.terraform.io/providers/hashicorp/aws/3.0/docs/resources/iam_user) |
+| [aws_s3_bucket_policy](https://registry.terraform.io/providers/hashicorp/aws/3.0/docs/resources/s3_bucket_policy) |
+| [aws_s3_bucket](https://registry.terraform.io/providers/hashicorp/aws/3.0/docs/resources/s3_bucket) |
+| [cloudflare_record](https://registry.terraform.io/providers/cloudflare/cloudflare/2.0/docs/resources/record) |
 
 ## Inputs
 
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
-| domain | The domain to use | `string` | n/a | yes |
-| user\_group | The IAM group to add the S3 Uploader user | `string` | `"s3_Uploaders"` | no |
+| cloudflare\_zone\_id | The Cloudflare Zone ID. | `string` | n/a | yes |
+| domain | The domain to use. | `string` | n/a | yes |
+| user\_group | The IAM group to add the S3 Uploader user. | `string` | `"s3_Uploaders"` | no |
 
 ## Outputs
 
