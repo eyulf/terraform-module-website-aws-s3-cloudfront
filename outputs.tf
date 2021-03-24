@@ -22,5 +22,5 @@ output "cloudfront_url" {
 
 output "cloudfront_url_redirect" {
   description = "The name of the Cloudfront URL providing redirects."
-  value       = aws_cloudfront_distribution.website_redirect.domain_name
+  value       = var.create_www_redirect == true ? aws_cloudfront_distribution.website_redirect[0].domain_name : null
 }

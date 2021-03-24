@@ -96,9 +96,11 @@ data "aws_iam_policy_document" "website" {
 }
 
 data "aws_iam_policy_document" "website_redirect" {
+  count = var.create_www_redirect ? 1 : 0
+
   statement {
     actions   = ["s3:GetObject"]
-    resources = ["${aws_s3_bucket.website_redirect.arn}/*"]
+    resources = ["${aws_s3_bucket.website_redirect[0].arn}/*"]
 
     principals {
       type        = "AWS"
@@ -160,6 +162,8 @@ resource "aws_s3_bucket_policy" "website" {
 ### Production (Redirect) S3 Bucket
 
 resource "aws_s3_bucket" "website_redirect" {
+  count = var.create_www_redirect ? 1 : 0
+
   bucket = "www.${var.domain}"
   acl    = "private"
 
@@ -171,8 +175,10 @@ resource "aws_s3_bucket" "website_redirect" {
 }
 
 resource "aws_s3_bucket_policy" "website_redirect" {
-  bucket = aws_s3_bucket.website_redirect.id
-  policy = data.aws_iam_policy_document.website_redirect.json
+  count = var.create_www_redirect ? 1 : 0
+
+  bucket = aws_s3_bucket.website_redirect[0].id
+  policy = data.aws_iam_policy_document.website_redirect[0].json
 }
 
 /*
@@ -244,12 +250,14 @@ resource "aws_cloudfront_distribution" "website" {
 ### Production (Redirect) Cloudfront
 
 resource "aws_cloudfront_distribution" "website_redirect" {
+  count = var.create_www_redirect ? 1 : 0
+
   aliases         = ["www.${var.domain}"]
   enabled         = true
   is_ipv6_enabled = true
 
   origin {
-    domain_name = aws_s3_bucket.website_redirect.bucket_regional_domain_name
+    domain_name = aws_s3_bucket.website_redirect[0].bucket_regional_domain_name
     origin_id   = local.origin_id
 
     s3_origin_config {
@@ -347,9 +355,11 @@ resource "cloudflare_record" "website" {
 }
 
 resource "cloudflare_record" "website_redirect" {
+  count = var.create_www_redirect ? 1 : 0
+
   zone_id = var.cloudflare_zone_id
   name    = "www"
-  value   = aws_cloudfront_distribution.website_redirect.domain_name
+  value   = aws_cloudfront_distribution.website_redirect[0].domain_name
   type    = "CNAME"
   ttl     = 3600
 }
