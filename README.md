@@ -102,3 +102,6 @@ No Modules.
 | s3\_bucket\_prod | The name of the production S3 Bucket |
 | s3\_bucket\_staging | The name of the staging S3 Bucket |
 <!-- END OF PRE-COMMIT-TERRAFORM DOCS HOOK -->
+
+Note:
+- The Staging outputs will only be provided if staging is enabled.
