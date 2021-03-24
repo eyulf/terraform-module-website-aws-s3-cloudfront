@@ -1,12 +1,12 @@
 output "iam_user_access_key_id" {
   description = "The Access Key ID of the IAM user used for uploading to the S3 bucket"
-  value       = aws_iam_access_key.uploader.id
+  value       = var.create_iam_user == true ? aws_iam_access_key.uploader[0].id : null
   sensitive   = true
 }
 
 output "iam_user_secret_access_key" {
   description = "The Secret Access Key of the IAM user used for uploading to the S3 bucket"
-  value       = aws_iam_access_key.uploader.secret
+  value       = var.create_iam_user == true ? aws_iam_access_key.uploader[0].secret : null
   sensitive   = true
 }
 

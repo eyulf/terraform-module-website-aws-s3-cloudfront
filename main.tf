@@ -14,26 +14,50 @@ provider "aws" {
 ### IAM Uploader user and group
 
 resource "aws_iam_group" "uploader" {
+  count = var.create_iam_group ? 1 : 0
+
   name = var.user_group
 }
 
+data "aws_iam_group" "uploader" {
+  count = var.create_iam_group ? 0 : 1
+
+  group_name = var.user_group
+}
+
 resource "aws_iam_user" "uploader" {
+  count = var.create_iam_user ? 1 : 0
+
   name = "s3_uploader_${var.domain}"
   path = "/websites/"
 
   tags = local.tags
 }
 
-resource "aws_iam_user_group_membership" "uploader" {
-  user = aws_iam_user.uploader.name
+resource "aws_iam_user_group_membership" "uploader_created" {
+  count = var.create_iam_user && var.create_iam_group ? 1 : 0
+
+  user = aws_iam_user.uploader[0].name
 
   groups = [
-    aws_iam_group.uploader.name,
+    aws_iam_group.uploader[0].name,
+  ]
+}
+
+resource "aws_iam_user_group_membership" "uploader_existing" {
+  count = var.create_iam_user && !var.create_iam_group ? 1 : 0
+
+  user = aws_iam_user.uploader[0].name
+
+  groups = [
+    data.aws_iam_group.uploader[0].group_name,
   ]
 }
 
 resource "aws_iam_access_key" "uploader" {
-  user = aws_iam_user.uploader.name
+  count = var.create_iam_user ? 1 : 0
+
+  user = aws_iam_user.uploader[0].name
 }
 
 data "aws_iam_policy_document" "uploader" {
@@ -50,8 +74,10 @@ data "aws_iam_policy_document" "uploader" {
 }
 
 resource "aws_iam_user_policy" "uploader" {
+  count = var.create_iam_user ? 1 : 0
+
   name   = "s3_uploader_${var.domain}"
-  user   = aws_iam_user.uploader.name
+  user   = aws_iam_user.uploader[0].name
   policy = data.aws_iam_policy_document.uploader.json
 }
 

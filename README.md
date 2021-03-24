@@ -25,7 +25,7 @@ This _may_ cost less then approximately USD$0.12 per month for a website with ve
 
 ## Usage
 
-**Default**
+### Default
 ```hcl
 module "static_website_aws_cloudflare" {
   source             = "path/to/module"
@@ -33,6 +33,31 @@ module "static_website_aws_cloudflare" {
   cloudflare_zone_id = <CLOUDFLARE ZONE ID>
 }
 ```
+
+### No IAM users or groups created
+```hcl
+module "static_website_aws_cloudflare" {
+  source             = "path/to/module"
+  domain             = "example.com"
+  cloudflare_zone_id = <CLOUDFLARE ZONE ID>
+  create_iam_user    = false
+  create_iam_group   = false
+}
+```
+
+### Use existing group
+```hcl
+module "static_website_aws_cloudflare" {
+  source             = "path/to/module"
+  domain             = "example.com"
+  cloudflare_zone_id = <CLOUDFLARE ZONE ID>
+  create_iam_group   = false
+}
+```
+
+Note: This expects the group to already exist as it will create the user and attempt to add it to the group.
+
+---
 
 <!-- BEGINNING OF PRE-COMMIT-TERRAFORM DOCS HOOK -->
 Provider Configuration
@@ -66,6 +91,7 @@ No Modules.
 | [aws_cloudfront_distribution](https://registry.terraform.io/providers/hashicorp/aws/3.0/docs/resources/cloudfront_distribution) |
 | [aws_cloudfront_origin_access_identity](https://registry.terraform.io/providers/hashicorp/aws/3.0/docs/resources/cloudfront_origin_access_identity) |
 | [aws_iam_access_key](https://registry.terraform.io/providers/hashicorp/aws/3.0/docs/resources/iam_access_key) |
+| [aws_iam_group](https://registry.terraform.io/providers/hashicorp/aws/3.0/docs/data-sources/iam_group) |
 | [aws_iam_group](https://registry.terraform.io/providers/hashicorp/aws/3.0/docs/resources/iam_group) |
 | [aws_iam_policy_document](https://registry.terraform.io/providers/hashicorp/aws/3.0/docs/data-sources/iam_policy_document) |
 | [aws_iam_user_group_membership](https://registry.terraform.io/providers/hashicorp/aws/3.0/docs/resources/iam_user_group_membership) |
@@ -82,6 +108,8 @@ No Modules.
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
 | cloudflare\_zone\_id | The Cloudflare Zone ID. | `string` | n/a | yes |
+| create\_iam\_group | Toggle creating a IAM user for S3 uploads. | `bool` | `true` | no |
+| create\_iam\_user | Toggle creating a IAM user for S3 uploads. | `bool` | `true` | no |
 | domain | The domain to use. | `string` | n/a | yes |
 | s3\_cors\_allowed\_origins | Specifies which origins are allowed for the S3 CORS configuration. | `list(string)` | `[]` | no |
 | user\_group | The IAM group to add the S3 Uploader user. | `string` | `"s3_Uploaders"` | no |
