@@ -36,7 +36,7 @@ resource "aws_iam_access_key" "uploader" {
   user = aws_iam_user.uploader.name
 }
 
-data "aws_iam_policy_document" "uploader" {
+data "aws_iam_policy_document" "uploader_production" {
   statement {
     actions = [
       "s3:*",
@@ -44,17 +44,38 @@ data "aws_iam_policy_document" "uploader" {
 
     resources = [
       aws_s3_bucket.production.arn,
-      "${aws_s3_bucket.production.arn}/*",
-      aws_s3_bucket.staging.arn,
-      "${aws_s3_bucket.staging.arn}/*",
+      "${aws_s3_bucket.production.arn}/*"
     ]
   }
 }
 
-resource "aws_iam_user_policy" "uploader" {
-  name   = "s3_uploader_${var.domain}"
+resource "aws_iam_user_policy" "uploader_production" {
+  name   = "s3_uploader_${var.domain}_production"
   user   = aws_iam_user.uploader.name
-  policy = data.aws_iam_policy_document.uploader.json
+  policy = data.aws_iam_policy_document.uploader_production.json
+}
+
+data "aws_iam_policy_document" "uploader_staging" {
+  count = var.enable_staging ? 1 : 0
+
+  statement {
+    actions = [
+      "s3:*",
+    ]
+
+    resources = [
+      aws_s3_bucket.staging[0].arn,
+      "${aws_s3_bucket.staging[0].arn}/*",
+    ]
+  }
+}
+
+resource "aws_iam_user_policy" "uploader_staging" {
+  count = var.enable_staging ? 1 : 0
+
+  name   = "s3_uploader_${var.domain}_staging"
+  user   = aws_iam_user.uploader.name
+  policy = data.aws_iam_policy_document.uploader_staging[0].json
 }
 
 ### S3 Bucket Policies
@@ -84,13 +105,15 @@ data "aws_iam_policy_document" "website_production_redirect" {
 }
 
 data "aws_iam_policy_document" "website_staging" {
+  count = var.enable_staging ? 1 : 0
+
   statement {
     actions   = ["s3:GetObject"]
-    resources = ["${aws_s3_bucket.staging.arn}/*"]
+    resources = ["${aws_s3_bucket.staging[0].arn}/*"]
 
     principals {
       type        = "AWS"
-      identifiers = [aws_cloudfront_origin_access_identity.staging.iam_arn]
+      identifiers = [aws_cloudfront_origin_access_identity.staging[0].iam_arn]
     }
   }
 }
@@ -111,6 +134,14 @@ resource "aws_s3_bucket" "production" {
 
   versioning {
     enabled = true
+  }
+
+  cors_rule {
+    allowed_headers = []
+    allowed_methods = ["GET"]
+    allowed_origins = var.s3_cors_allowed_origins
+    expose_headers  = []
+    max_age_seconds = 0
   }
 
   lifecycle_rule {
@@ -158,6 +189,8 @@ resource "aws_s3_bucket_policy" "production_redirect" {
 ### Staging S3 Bucket
 
 resource "aws_s3_bucket" "staging" {
+  count = var.enable_staging ? 1 : 0
+
   bucket = "staging.${var.domain}"
   acl    = "private"
 
@@ -167,6 +200,14 @@ resource "aws_s3_bucket" "staging" {
 
   versioning {
     enabled = true
+  }
+
+  cors_rule {
+    allowed_headers = []
+    allowed_methods = ["GET"]
+    allowed_origins = var.s3_cors_allowed_origins
+    expose_headers  = []
+    max_age_seconds = 0
   }
 
   lifecycle_rule {
@@ -189,8 +230,10 @@ resource "aws_s3_bucket" "staging" {
 }
 
 resource "aws_s3_bucket_policy" "staging" {
-  bucket = aws_s3_bucket.staging.id
-  policy = data.aws_iam_policy_document.website_staging.json
+  count = var.enable_staging ? 1 : 0
+
+  bucket = aws_s3_bucket.staging[0].id
+  policy = data.aws_iam_policy_document.website_staging[0].json
 }
 
 /*
@@ -312,21 +355,25 @@ resource "aws_cloudfront_distribution" "production_redirect" {
 ### Staging Cloudfront
 
 resource "aws_cloudfront_origin_access_identity" "staging" {
+  count = var.enable_staging ? 1 : 0
+
   comment = "staging.${var.domain}"
 }
 
 resource "aws_cloudfront_distribution" "staging" {
+  count = var.enable_staging ? 1 : 0
+
   aliases             = ["staging.${var.domain}"]
   enabled             = true
   is_ipv6_enabled     = true
   default_root_object = "index.html"
 
   origin {
-    domain_name = aws_s3_bucket.staging.bucket_regional_domain_name
+    domain_name = aws_s3_bucket.staging[0].bucket_regional_domain_name
     origin_id   = local.origin_id
 
     s3_origin_config {
-      origin_access_identity = aws_cloudfront_origin_access_identity.staging.cloudfront_access_identity_path
+      origin_access_identity = aws_cloudfront_origin_access_identity.staging[0].cloudfront_access_identity_path
     }
   }
 
@@ -357,7 +404,7 @@ resource "aws_cloudfront_distribution" "staging" {
   }
 
   viewer_certificate {
-    acm_certificate_arn      = aws_acm_certificate_validation.staging.certificate_arn
+    acm_certificate_arn      = aws_acm_certificate_validation.staging[0].certificate_arn
     ssl_support_method       = "sni-only"
     minimum_protocol_version = "TLSv1.2_2019"
   }
@@ -396,7 +443,7 @@ resource "cloudflare_record" "production_acm_validation" {
   for_each = {
     for dvo in aws_acm_certificate.production.domain_validation_options : dvo.domain_name => {
       name   = dvo.resource_record_name
-      record = dvo.resource_record_value
+      record = trimsuffix(dvo.resource_record_value, ".")
       type   = dvo.resource_record_type
     }
   }
@@ -417,6 +464,7 @@ resource "aws_acm_certificate_validation" "production" {
 ### Staging ACM
 
 resource "aws_acm_certificate" "staging" {
+  count    = var.enable_staging ? 1 : 0
   provider = aws.virginia
 
   domain_name       = "staging.${var.domain}"
@@ -430,10 +478,25 @@ resource "aws_acm_certificate" "staging" {
 }
 
 resource "cloudflare_record" "staging_acm_validation" {
+  count = var.enable_staging ? 1 : 0
+
+  #name    = replace(aws_acm_certificate.default.domain_validation_options.2.resource_record_name, ".${var.domain}.", "")
+  #value   = replace(aws_acm_certificate.default.domain_validation_options.2.resource_record_value, "/\\.$/", "")
+  #type    = aws_acm_certificate.default.domain_validation_options.2.resource_record_type
+
+  zone_id = var.cloudflare_zone_id
+  name    = lookup(aws_acm_certificate.staging[0].domain_validation_options, "domain_name", "")
+  value   = trimsuffix(aws_acm_certificate.staging[0].domain_validation_options, ".")
+  type    = aws_acm_certificate.staging[0].domain_validation_options
+  ttl     = 120
+}
+
+/*
+resource "cloudflare_record" "staging_acm_validation" {
   for_each = {
-    for dvo in aws_acm_certificate.staging.domain_validation_options : dvo.domain_name => {
+    for dvo in join("", aws_acm_certificate.staging.*.domain_validation_options) : dvo.domain_name => {
       name   = dvo.resource_record_name
-      record = dvo.resource_record_value
+      record = trimsuffix(dvo.resource_record_value, ".")
       type   = dvo.resource_record_type
     }
   }
@@ -444,11 +507,12 @@ resource "cloudflare_record" "staging_acm_validation" {
   type    = each.value.type
   ttl     = 120
 }
-
+*/
 resource "aws_acm_certificate_validation" "staging" {
+  count    = var.enable_staging ? 1 : 0
   provider = aws.virginia
 
-  certificate_arn = aws_acm_certificate.staging.arn
+  certificate_arn = aws_acm_certificate.staging[0].arn
 }
 
 /*
@@ -472,9 +536,11 @@ resource "cloudflare_record" "website_redirect" {
 }
 
 resource "cloudflare_record" "website_staging" {
+  count = var.enable_staging ? 1 : 0
+
   zone_id = var.cloudflare_zone_id
   name    = "staging"
-  value   = aws_cloudfront_distribution.staging.domain_name
+  value   = aws_cloudfront_distribution.staging[0].domain_name
   type    = "CNAME"
   ttl     = 3600
 }

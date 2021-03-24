@@ -86,12 +86,17 @@ No Modules.
 |------|-------------|------|---------|:--------:|
 | cloudflare\_zone\_id | The Cloudflare Zone ID. | `string` | n/a | yes |
 | domain | The domain to use. | `string` | n/a | yes |
+| enable\_staging | Determines if a staging environment is created. | `bool` | `true` | no |
+| s3\_cors\_allowed\_origins | Specifies which origins are allowed for the S3 CORS configuration. | `list(string)` | n/a | yes |
 | user\_group | The IAM group to add the S3 Uploader user. | `string` | `"s3_Uploaders"` | no |
 
 ## Outputs
 
 | Name | Description |
 |------|-------------|
+| cloudfront\_url\_prod | The name of the production Cloudfront URL. |
+| cloudfront\_url\_prod\_redirect | The name of the production redirect Cloudfront URL. |
+| cloudfront\_url\_staging | The name of the staging Cloudfront URL. |
 | iam\_user\_access\_key\_id | The Access Key ID of the IAM user used for uploading to the S3 bucket |
 | iam\_user\_secret\_access\_key | The Secret Access Key of the IAM user used for uploading to the S3 bucket |
 | s3\_bucket\_prod | The name of the production S3 Bucket |
