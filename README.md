@@ -46,6 +46,9 @@ module "static_website_aws_cloudflare" {
 ```
 
 ### Use existing group
+
+Note: This expects the group to already exist as it will create the user and attempt to add it to the group.
+
 ```hcl
 module "static_website_aws_cloudflare" {
   source             = "path/to/module"
@@ -54,8 +57,6 @@ module "static_website_aws_cloudflare" {
   create_iam_group   = false
 }
 ```
-
-Note: This expects the group to already exist as it will create the user and attempt to add it to the group.
 
 ---
 
