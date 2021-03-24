@@ -55,7 +55,7 @@ resource "aws_iam_user_group_membership" "uploader_existing" {
 }
 
 resource "aws_iam_access_key" "uploader" {
-  count = var.create_iam_user ? 1 : 0
+  count = var.create_iam_user && var.create_iam_keys ? 1 : 0
 
   user = aws_iam_user.uploader[0].name
 }

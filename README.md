@@ -12,7 +12,7 @@
 
 ## Introduction
 
-This module will configure multiple S3 buckets with website hosting enabled. Cloudflare is used for DNS hosting. By default, an IAM user is also created and configured with an intial access key to provide an easy way to upload website files to the S3 buckets.
+This module will configure multiple S3 buckets with website hosting enabled. Cloudflare is used for DNS hosting. By default, an IAM user is also created and optionally configured with an intial access key to provide an easy way to upload website files to the S3 buckets.
 
 A S3 bucket and Cloudfront distribution is created for the provided domain and by default a S3 bucket and Cloudfront distribution is also created to redirects to this.
 
@@ -109,7 +109,8 @@ No Modules.
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
 | cloudflare\_zone\_id | The Cloudflare Zone ID. | `string` | n/a | yes |
-| create\_iam\_group | Toggle creating a IAM user for S3 uploads. | `bool` | `true` | no |
+| create\_iam\_group | Toggle creating a IAM group for S3 uploads. | `bool` | `true` | no |
+| create\_iam\_keys | Toggle creating the Access Keys for the IAM user. | `bool` | `false` | no |
 | create\_iam\_user | Toggle creating a IAM user for S3 uploads. | `bool` | `true` | no |
 | create\_www\_redirect | Toggle creating a redirect from www.domain to domain. | `bool` | `true` | no |
 | domain | The domain to use. | `string` | n/a | yes |
