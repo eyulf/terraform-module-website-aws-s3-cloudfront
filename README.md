@@ -27,8 +27,9 @@ For DNS hosting, you can supply either a Cloudflare or Route53 zone ID. DNS reco
 
 ### Default (Cloudflare)
 ```hcl
-module "static_website_aws_cloudflare" {
-  source             = "path/to/module"
+module "website-aws-s3-cloudfront-cloudflare" {
+  source             = "eyulf/website-aws-s3-cloudfront/module"
+  version            = "1.0.0"
   website_domain     = "example.com"
   cloudflare_zone_id = <CLOUDFLARE ZONE ID>
 }
@@ -36,8 +37,9 @@ module "static_website_aws_cloudflare" {
 
 ### Default (Route53)
 ```hcl
-module "static_website_aws_route53" {
-  source          = "path/to/module"
+module "website-aws-s3-cloudfront-route53" {
+  source          = "eyulf/website-aws-s3-cloudfront/module"
+  version         = "1.0.0"
   website_domain  = "example.com"
   route53_zone_id = <ROUTE53 ZONE ID>
 }
