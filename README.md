@@ -100,6 +100,7 @@ No Modules.
 | cloudfront\_default\_cache\_default\_ttl | The default ttl value for the Cloudfront default cache behaviour configuration. | `number` | `3600` | no |
 | cloudfront\_default\_cache\_max\_ttl | The maximum ttl value for the Cloudfront default cache behaviour configuration. | `number` | `86400` | no |
 | cloudfront\_default\_cache\_min\_ttl | The minimum ttl value for the Cloudfront default cache behaviour configuration. | `number` | `0` | no |
+| cloudfront\_price\_class | The price class to use for Cloudfront. Must be one of `PriceClass_All`, `PriceClass_200` or `PriceClass_100`. | `string` | `"PriceClass_All"` | no |
 | cloudfront\_ssl\_minimum\_protocol | The minimum SSL protocol to use for the Cloudfront viewer certificate configuration. | `string` | `"TLSv1.2_2019"` | no |
 | iam\_group\_create | When set to `true` this will create and manage the IAM group. When set to `false` it will use a data resource instead. | `bool` | `true` | no |
 | iam\_group\_name | The name of the IAM group that the IAM user will be added to. | `string` | `"s3_uploaders"` | no |

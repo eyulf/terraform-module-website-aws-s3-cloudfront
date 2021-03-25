@@ -34,6 +34,12 @@ variable "cloudfront_default_cache_min_ttl" {
   type        = number
 }
 
+variable "cloudfront_price_class" {
+  description = "The price class to use for Cloudfront. Must be one of `PriceClass_All`, `PriceClass_200` or `PriceClass_100`."
+  default     = "PriceClass_All"
+  type        = string
+}
+
 variable "cloudfront_ssl_minimum_protocol" {
   description = "The minimum SSL protocol to use for the Cloudfront viewer certificate configuration."
   default     = "TLSv1.2_2019"

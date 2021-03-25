@@ -225,6 +225,7 @@ resource "aws_cloudfront_origin_access_identity" "this" {
 
 resource "aws_cloudfront_distribution" "website" {
   aliases             = [var.website_domain]
+  price_class         = var.cloudfront_price_class
   enabled             = true
   is_ipv6_enabled     = true
   default_root_object = "index.html"
