@@ -125,6 +125,14 @@ resource "aws_s3_bucket" "website" {
     enabled = true
   }
 
+  server_side_encryption_configuration {
+    rule {
+      apply_server_side_encryption_by_default {
+        sse_algorithm = "AES256"
+      }
+    }
+  }
+
   cors_rule {
     allowed_headers = []
     allowed_methods = ["GET"]
@@ -167,6 +175,34 @@ resource "aws_s3_bucket" "website_redirect" {
 
   website {
     redirect_all_requests_to = "https://${var.domain}"
+  }
+
+  versioning {
+    enabled = true
+  }
+
+  server_side_encryption_configuration {
+    rule {
+      apply_server_side_encryption_by_default {
+        sse_algorithm = "AES256"
+      }
+    }
+  }
+
+  lifecycle_rule {
+    abort_incomplete_multipart_upload_days = 7
+    enabled                                = true
+    id                                     = "Purge old versions"
+    tags                                   = {}
+
+    noncurrent_version_expiration {
+      days = 30
+    }
+
+    expiration {
+      days                         = 0
+      expired_object_delete_marker = true
+    }
   }
 
   tags = local.tags
