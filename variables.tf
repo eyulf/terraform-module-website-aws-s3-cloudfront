@@ -34,7 +34,14 @@ variable "create_www_redirect" {
 }
 
 variable "cloudflare_zone_id" {
-  description = "The Cloudflare Zone ID."
+  description = "The Cloudflare Zone ID. Not Required if `route53_zoneid` is provided."
+  default     = ""
+  type        = string
+}
+
+variable "route53_zone_id" {
+  description = "The Route53 Zone ID. Not Required if `cloudflare_zone_id` is provided."
+  default     = ""
   type        = string
 }
 

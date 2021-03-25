@@ -113,8 +113,6 @@ data "aws_iam_policy_document" "website_redirect" {
  * S3 Bucket Configuration
  */
 
-### Production S3 Bucket
-
 resource "aws_s3_bucket" "website" {
   bucket = var.domain
   acl    = "private"
@@ -159,7 +157,7 @@ resource "aws_s3_bucket_policy" "website" {
   policy = data.aws_iam_policy_document.website.json
 }
 
-### Production (Redirect) S3 Bucket
+### S3 Bucket (Redirect)
 
 resource "aws_s3_bucket" "website_redirect" {
   count = var.create_www_redirect ? 1 : 0
@@ -184,8 +182,6 @@ resource "aws_s3_bucket_policy" "website_redirect" {
 /*
  * Cloudfront Configuration
  */
-
-### Production Cloudfront
 
 resource "aws_cloudfront_origin_access_identity" "this" {
   comment = var.domain
@@ -247,7 +243,7 @@ resource "aws_cloudfront_distribution" "website" {
   tags = local.tags
 }
 
-### Production (Redirect) Cloudfront
+### Cloudfront (Redirect)
 
 resource "aws_cloudfront_distribution" "website_redirect" {
   count = var.create_www_redirect ? 1 : 0
@@ -322,7 +318,7 @@ resource "aws_acm_certificate" "website" {
 
 resource "cloudflare_record" "website_acm_validation" {
   for_each = {
-    for dvo in aws_acm_certificate.website.domain_validation_options : dvo.domain_name => {
+    for dvo in var.cloudflare_zone_id != "" ? aws_acm_certificate.website.domain_validation_options : [] : dvo.domain_name => {
       name   = dvo.resource_record_name
       record = trimsuffix(dvo.resource_record_value, ".")
       type   = dvo.resource_record_type
@@ -336,6 +332,23 @@ resource "cloudflare_record" "website_acm_validation" {
   ttl     = 120
 }
 
+resource "aws_route53_record" "website_acm_validation" {
+  for_each = {
+    for dvo in var.route53_zone_id != "" ? aws_acm_certificate.website.domain_validation_options : [] : dvo.domain_name => {
+      name   = dvo.resource_record_name
+      record = dvo.resource_record_value
+      type   = dvo.resource_record_type
+    }
+  }
+
+  zone_id         = var.route53_zone_id
+  name            = each.value.name
+  records         = [each.value.record]
+  type            = each.value.type
+  ttl             = 60
+  allow_overwrite = true
+}
+
 resource "aws_acm_certificate_validation" "website" {
   provider = aws.virginia
 
@@ -343,10 +356,14 @@ resource "aws_acm_certificate_validation" "website" {
 }
 
 /*
- * Cloudflare Configuration
+ * DNS Configuration
  */
 
+### Cloudflare
+
 resource "cloudflare_record" "website" {
+  count = var.cloudflare_zone_id != "" ? 1 : 0
+
   zone_id = var.cloudflare_zone_id
   name    = var.domain
   value   = aws_cloudfront_distribution.website.domain_name
@@ -355,13 +372,43 @@ resource "cloudflare_record" "website" {
 }
 
 resource "cloudflare_record" "website_redirect" {
-  count = var.create_www_redirect ? 1 : 0
+  count = var.create_www_redirect && var.cloudflare_zone_id != "" ? 1 : 0
 
   zone_id = var.cloudflare_zone_id
   name    = "www"
   value   = aws_cloudfront_distribution.website_redirect[0].domain_name
   type    = "CNAME"
   ttl     = 3600
+}
+
+### Route53
+
+resource "aws_route53_record" "website" {
+  count = var.route53_zone_id != "" ? 1 : 0
+
+  zone_id = var.route53_zone_id
+  name    = var.domain
+  type    = "A"
+
+  alias {
+    name                   = aws_cloudfront_distribution.website.domain_name
+    zone_id                = aws_cloudfront_distribution.website.hosted_zone_id
+    evaluate_target_health = true
+  }
+}
+
+resource "aws_route53_record" "production_redirect" {
+  count = var.create_www_redirect && var.route53_zone_id != "" ? 1 : 0
+
+  zone_id = var.route53_zone_id
+  name    = "www.${var.domain}"
+  type    = "A"
+
+  alias {
+    name                   = aws_cloudfront_distribution.website_redirect[0].domain_name
+    zone_id                = aws_cloudfront_distribution.website_redirect[0].hosted_zone_id
+    evaluate_target_health = true
+  }
 }
 
 /*
