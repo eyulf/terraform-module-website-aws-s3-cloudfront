@@ -14,28 +14,28 @@ provider "aws" {
 ### IAM Uploader user and group
 
 resource "aws_iam_group" "uploader" {
-  count = var.create_iam_group ? 1 : 0
+  count = var.iam_group_create ? 1 : 0
 
-  name = var.user_group
+  name = var.iam_group_name
 }
 
 data "aws_iam_group" "uploader" {
-  count = var.create_iam_group ? 0 : 1
+  count = var.iam_group_create ? 0 : 1
 
-  group_name = var.user_group
+  group_name = var.iam_group_name
 }
 
 resource "aws_iam_user" "uploader" {
-  count = var.create_iam_user ? 1 : 0
+  count = var.iam_user_create ? 1 : 0
 
-  name = "s3_uploader_${var.domain}"
-  path = "/websites/"
+  name = "${var.iam_user_prefix_name}_${var.website_domain}"
+  path = var.iam_user_path
 
   tags = local.tags
 }
 
 resource "aws_iam_user_group_membership" "uploader_created" {
-  count = var.create_iam_user && var.create_iam_group ? 1 : 0
+  count = var.iam_user_create && var.iam_group_create ? 1 : 0
 
   user = aws_iam_user.uploader[0].name
 
@@ -45,7 +45,7 @@ resource "aws_iam_user_group_membership" "uploader_created" {
 }
 
 resource "aws_iam_user_group_membership" "uploader_existing" {
-  count = var.create_iam_user && !var.create_iam_group ? 1 : 0
+  count = var.iam_user_create && !var.iam_group_create ? 1 : 0
 
   user = aws_iam_user.uploader[0].name
 
@@ -55,7 +55,7 @@ resource "aws_iam_user_group_membership" "uploader_existing" {
 }
 
 resource "aws_iam_access_key" "uploader" {
-  count = var.create_iam_user && var.create_iam_keys ? 1 : 0
+  count = var.iam_user_create && var.iam_user_keys_create ? 1 : 0
 
   user = aws_iam_user.uploader[0].name
 }
@@ -74,9 +74,9 @@ data "aws_iam_policy_document" "uploader" {
 }
 
 resource "aws_iam_user_policy" "uploader" {
-  count = var.create_iam_user ? 1 : 0
+  count = var.iam_user_create ? 1 : 0
 
-  name   = "s3_uploader_${var.domain}"
+  name   = "${var.iam_user_prefix_name}_${var.website_domain}"
   user   = aws_iam_user.uploader[0].name
   policy = data.aws_iam_policy_document.uploader.json
 }
@@ -96,7 +96,7 @@ data "aws_iam_policy_document" "website" {
 }
 
 data "aws_iam_policy_document" "website_redirect" {
-  count = var.create_www_redirect ? 1 : 0
+  count = var.website_redirect_www ? 1 : 0
 
   statement {
     actions   = ["s3:GetObject"]
@@ -114,7 +114,7 @@ data "aws_iam_policy_document" "website_redirect" {
  */
 
 resource "aws_s3_bucket" "website" {
-  bucket = var.domain
+  bucket = var.website_domain
   acl    = "private"
 
   website {
@@ -134,10 +134,10 @@ resource "aws_s3_bucket" "website" {
   }
 
   cors_rule {
-    allowed_headers = []
-    allowed_methods = ["GET"]
+    allowed_headers = var.s3_cors_allowed_headers
+    allowed_methods = var.s3_cors_allowed_methods
     allowed_origins = var.s3_cors_allowed_origins
-    expose_headers  = []
+    expose_headers  = var.s3_cors_expose_headers
     max_age_seconds = 0
   }
 
@@ -148,7 +148,7 @@ resource "aws_s3_bucket" "website" {
     tags                                   = {}
 
     noncurrent_version_expiration {
-      days = 30
+      days = var.s3_lifecycle_noncurrent_expiration
     }
 
     expiration {
@@ -168,13 +168,13 @@ resource "aws_s3_bucket_policy" "website" {
 ### S3 Bucket (Redirect)
 
 resource "aws_s3_bucket" "website_redirect" {
-  count = var.create_www_redirect ? 1 : 0
+  count = var.website_redirect_www ? 1 : 0
 
-  bucket = "www.${var.domain}"
+  bucket = "www.${var.website_domain}"
   acl    = "private"
 
   website {
-    redirect_all_requests_to = "https://${var.domain}"
+    redirect_all_requests_to = "https://${var.website_domain}"
   }
 
   versioning {
@@ -196,7 +196,7 @@ resource "aws_s3_bucket" "website_redirect" {
     tags                                   = {}
 
     noncurrent_version_expiration {
-      days = 30
+      days = var.s3_lifecycle_noncurrent_expiration
     }
 
     expiration {
@@ -209,7 +209,7 @@ resource "aws_s3_bucket" "website_redirect" {
 }
 
 resource "aws_s3_bucket_policy" "website_redirect" {
-  count = var.create_www_redirect ? 1 : 0
+  count = var.website_redirect_www ? 1 : 0
 
   bucket = aws_s3_bucket.website_redirect[0].id
   policy = data.aws_iam_policy_document.website_redirect[0].json
@@ -220,11 +220,11 @@ resource "aws_s3_bucket_policy" "website_redirect" {
  */
 
 resource "aws_cloudfront_origin_access_identity" "this" {
-  comment = var.domain
+  comment = var.website_domain
 }
 
 resource "aws_cloudfront_distribution" "website" {
-  aliases             = [var.domain]
+  aliases             = [var.website_domain]
   enabled             = true
   is_ipv6_enabled     = true
   default_root_object = "index.html"
@@ -239,8 +239,8 @@ resource "aws_cloudfront_distribution" "website" {
   }
 
   default_cache_behavior {
-    allowed_methods  = ["GET", "HEAD"]
-    cached_methods   = ["GET", "HEAD"]
+    allowed_methods  = var.cloudfront_default_cache_allowed_methods
+    cached_methods   = var.cloudfront_default_cache_cached_methods
     target_origin_id = local.origin_id
 
     lambda_function_association {
@@ -258,16 +258,16 @@ resource "aws_cloudfront_distribution" "website" {
     }
 
     viewer_protocol_policy = "redirect-to-https"
-    min_ttl                = 0
-    default_ttl            = 3600
-    max_ttl                = 86400
+    min_ttl                = var.cloudfront_default_cache_min_ttl
+    default_ttl            = var.cloudfront_default_cache_default_ttl
+    max_ttl                = var.cloudfront_default_cache_max_ttl
     compress               = true
   }
 
   viewer_certificate {
     acm_certificate_arn      = aws_acm_certificate_validation.website.certificate_arn
     ssl_support_method       = "sni-only"
-    minimum_protocol_version = "TLSv1.2_2019"
+    minimum_protocol_version = var.cloudfront_ssl_minimum_protocol
   }
 
   restrictions {
@@ -282,9 +282,9 @@ resource "aws_cloudfront_distribution" "website" {
 ### Cloudfront (Redirect)
 
 resource "aws_cloudfront_distribution" "website_redirect" {
-  count = var.create_www_redirect ? 1 : 0
+  count = var.website_redirect_www ? 1 : 0
 
-  aliases         = ["www.${var.domain}"]
+  aliases         = ["www.${var.website_domain}"]
   enabled         = true
   is_ipv6_enabled = true
 
@@ -298,8 +298,8 @@ resource "aws_cloudfront_distribution" "website_redirect" {
   }
 
   default_cache_behavior {
-    allowed_methods  = ["GET", "HEAD"]
-    cached_methods   = ["GET", "HEAD"]
+    allowed_methods  = var.cloudfront_default_cache_allowed_methods
+    cached_methods   = var.cloudfront_default_cache_cached_methods
     target_origin_id = local.origin_id
 
     forwarded_values {
@@ -311,15 +311,15 @@ resource "aws_cloudfront_distribution" "website_redirect" {
     }
 
     viewer_protocol_policy = "redirect-to-https"
-    min_ttl     = 0
-    default_ttl = 86400
-    max_ttl     = 31536000
+    min_ttl                = var.cloudfront_default_cache_min_ttl
+    default_ttl            = var.cloudfront_default_cache_default_ttl
+    max_ttl                = var.cloudfront_default_cache_max_ttl
   }
 
   viewer_certificate {
     acm_certificate_arn      = aws_acm_certificate_validation.website.certificate_arn
     ssl_support_method       = "sni-only"
-    minimum_protocol_version = "TLSv1.2_2019"
+    minimum_protocol_version = var.cloudfront_ssl_minimum_protocol
   }
 
   restrictions {
@@ -338,11 +338,11 @@ resource "aws_cloudfront_distribution" "website_redirect" {
 resource "aws_acm_certificate" "website" {
   provider = aws.virginia
 
-  domain_name       = var.domain
+  domain_name       = var.website_domain
   validation_method = "DNS"
 
   subject_alternative_names = [
-    "www.${var.domain}"
+    "www.${var.website_domain}"
   ]
 
   lifecycle {
@@ -401,14 +401,14 @@ resource "cloudflare_record" "website" {
   count = var.cloudflare_zone_id != "" ? 1 : 0
 
   zone_id = var.cloudflare_zone_id
-  name    = var.domain
+  name    = var.website_domain
   value   = aws_cloudfront_distribution.website.domain_name
   type    = "CNAME"
   ttl     = 3600
 }
 
 resource "cloudflare_record" "website_redirect" {
-  count = var.create_www_redirect && var.cloudflare_zone_id != "" ? 1 : 0
+  count = var.website_redirect_www && var.cloudflare_zone_id != "" ? 1 : 0
 
   zone_id = var.cloudflare_zone_id
   name    = "www"
@@ -423,7 +423,7 @@ resource "aws_route53_record" "website" {
   count = var.route53_zone_id != "" ? 1 : 0
 
   zone_id = var.route53_zone_id
-  name    = var.domain
+  name    = var.website_domain
   type    = "A"
 
   alias {
@@ -434,10 +434,10 @@ resource "aws_route53_record" "website" {
 }
 
 resource "aws_route53_record" "production_redirect" {
-  count = var.create_www_redirect && var.route53_zone_id != "" ? 1 : 0
+  count = var.website_redirect_www && var.route53_zone_id != "" ? 1 : 0
 
   zone_id = var.route53_zone_id
-  name    = "www.${var.domain}"
+  name    = "www.${var.website_domain}"
   type    = "A"
 
   alias {
@@ -459,7 +459,7 @@ data "aws_serverlessapplicationrepository_application" "standard_redirects_for_c
 resource "aws_serverlessapplicationrepository_cloudformation_stack" "standard_redirects_for_cloudfront" {
   provider = aws.virginia
 
-  name             = "${replace(var.domain, ".", "")}-cloudfront-redirect"
+  name             = "${replace(var.website_domain, ".", "")}-cloudfront-redirect"
   application_id   = data.aws_serverlessapplicationrepository_application.standard_redirects_for_cloudfront.application_id
   semantic_version = data.aws_serverlessapplicationrepository_application.standard_redirects_for_cloudfront.semantic_version
   capabilities     = ["CAPABILITY_IAM"] # Manually set due to capability removing itself after first deploy

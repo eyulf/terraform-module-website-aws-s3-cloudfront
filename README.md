@@ -25,36 +25,21 @@ For DNS hosting, you can supply either a Cloudflare or Route53 zone ID. DNS reco
 
 ## Usage
 
-### Default
+### Default (Cloudflare)
 ```hcl
 module "static_website_aws_cloudflare" {
   source             = "path/to/module"
-  domain             = "example.com"
+  website_domain     = "example.com"
   cloudflare_zone_id = <CLOUDFLARE ZONE ID>
 }
 ```
 
-### No IAM users or groups created
+### Default (Route53)
 ```hcl
-module "static_website_aws_cloudflare" {
-  source             = "path/to/module"
-  domain             = "example.com"
-  cloudflare_zone_id = <CLOUDFLARE ZONE ID>
-  create_iam_user    = false
-  create_iam_group   = false
-}
-```
-
-### Use existing group
-
-Note: This expects the group to already exist as it will create the user and attempt to add it to the group.
-
-```hcl
-module "static_website_aws_cloudflare" {
-  source             = "path/to/module"
-  domain             = "example.com"
-  cloudflare_zone_id = <CLOUDFLARE ZONE ID>
-  create_iam_group   = false
+module "static_website_aws_route53" {
+  source          = "path/to/module"
+  website_domain  = "example.com"
+  route53_zone_id = <ROUTE53 ZONE ID>
 }
 ```
 
@@ -110,14 +95,26 @@ No Modules.
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
 | cloudflare\_zone\_id | The Cloudflare Zone ID. Not Required if `route53_zoneid` is provided. | `string` | `""` | no |
-| create\_iam\_group | Toggle creating a IAM group for S3 uploads. | `bool` | `true` | no |
-| create\_iam\_keys | Toggle creating the Access Keys for the IAM user. | `bool` | `false` | no |
-| create\_iam\_user | Toggle creating a IAM user for S3 uploads. | `bool` | `true` | no |
-| create\_www\_redirect | Toggle creating a redirect from www.domain to domain. | `bool` | `true` | no |
-| domain | The domain to use. | `string` | n/a | yes |
+| cloudfront\_default\_cache\_allowed\_methods | List of allowed methods for the Cloudfront default cache behaviour configuration. | `list(string)` | <pre>[<br>  "GET",<br>  "HEAD"<br>]</pre> | no |
+| cloudfront\_default\_cache\_cached\_methods | List of cached\_methods for the Cloudfront default cache behaviour configuration. | `list(string)` | <pre>[<br>  "GET",<br>  "HEAD"<br>]</pre> | no |
+| cloudfront\_default\_cache\_default\_ttl | The default ttl value for the Cloudfront default cache behaviour configuration. | `number` | `3600` | no |
+| cloudfront\_default\_cache\_max\_ttl | The maximum ttl value for the Cloudfront default cache behaviour configuration. | `number` | `86400` | no |
+| cloudfront\_default\_cache\_min\_ttl | The minimum ttl value for the Cloudfront default cache behaviour configuration. | `number` | `0` | no |
+| cloudfront\_ssl\_minimum\_protocol | The minimum SSL protocol to use for the Cloudfront viewer certificate configuration. | `string` | `"TLSv1.2_2019"` | no |
+| iam\_group\_create | When set to `true` this will create and manage the IAM group. When set to `false` it will use a data resource instead. | `bool` | `true` | no |
+| iam\_group\_name | The name of the IAM group that the IAM user will be added to. | `string` | `"s3_uploaders"` | no |
+| iam\_user\_create | When set to `true` this will create and manage the IAM user. | `bool` | `true` | no |
+| iam\_user\_keys\_create | When set to `true` this will create and output the Access Key ID and Secret Access Keys for the IAM user. | `bool` | `false` | no |
+| iam\_user\_path | The path used for the IAM user. | `string` | `"/websites/"` | no |
+| iam\_user\_prefix\_name | The prefix used at the beginning of the IAM user's name. | `string` | `"s3_uploader"` | no |
 | route53\_zone\_id | The Route53 Zone ID. Not Required if `cloudflare_zone_id` is provided. | `string` | `""` | no |
-| s3\_cors\_allowed\_origins | Specifies which origins are allowed for the S3 CORS configuration. | `list(string)` | `[]` | no |
-| user\_group | The IAM group to add the S3 Uploader user. | `string` | `"s3_Uploaders"` | no |
+| s3\_cors\_allowed\_headers | List of allowed headers for the S3 Bucket's CORS configuration. | `list(string)` | `[]` | no |
+| s3\_cors\_allowed\_methods | List of allowed methods for the S3 Bucket's CORS configuration. | `list(string)` | <pre>[<br>  "GET"<br>]</pre> | no |
+| s3\_cors\_allowed\_origins | List of allowed origins for the S3 Bucket's CORS configuration. | `list(string)` | `[]` | no |
+| s3\_cors\_expose\_headers | List of expose headers for the S3 Bucket's CORS configuration. | `list(string)` | `[]` | no |
+| s3\_lifecycle\_noncurrent\_expiration | The number of days after which a non current version of a S3 object will be expired. | `number` | `30` | no |
+| website\_domain | The primary domain name to use for the website. | `string` | n/a | yes |
+| website\_redirect\_www | When set to `true` this will create a s3 bucket and cloudfront distribution to redirect www.`website_domain` to `website_domain`. | `bool` | `true` | no |
 
 ## Outputs
 
@@ -127,5 +124,5 @@ No Modules.
 | cloudfront\_url\_redirect | The name of the Cloudfront URL providing redirects. |
 | iam\_user\_access\_key\_id | The Access Key ID of the IAM user used for uploading to the S3 bucket |
 | iam\_user\_secret\_access\_key | The Secret Access Key of the IAM user used for uploading to the S3 bucket |
-| s3\_bucket | The name of the S3 Bucket |
+| s3\_bucket | The name of the S3 Bucket. |
 <!-- END OF PRE-COMMIT-TERRAFORM DOCS HOOK -->

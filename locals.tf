@@ -1,9 +1,9 @@
 locals {
-  origin_id = "S3-${var.domain}"
+  origin_id = "S3-${var.website_domain}"
 
   tags = {
     role    = "website"
-    domain  = var.domain
+    domain  = var.website_domain
     managed = "terraform"
   }
 }
