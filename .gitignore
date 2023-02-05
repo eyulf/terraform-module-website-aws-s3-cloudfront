@@ -2,8 +2,20 @@
 **/.terraform/*
 
 # .tfstate files
-*.tfstate
-*.tfstate.*
+**.tfstate
+**.tfstate.*
 
-# .tfvars files
-*.tfvars
+# .plan files
+**.plan
+**.plan.*
+
+# .swp files
+**.swp
+
+# .hcl files
+**.hcl
+!.tflint.hcl
+
+# Checkov
+.external_modules/
+.external_modules/**

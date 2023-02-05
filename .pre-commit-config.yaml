@@ -1,8 +1,13 @@
+---
 repos:
-- repo: git://github.com/antonbabenko/pre-commit-terraform
-  rev: v1.48.0
+- repo: https://github.com/antonbabenko/pre-commit-terraform
+  rev: v1.77.1
   hooks:
     - id: terraform_fmt
-    - id: terraform_tflint
-    - id: terraform_validate
     - id: terraform_docs
+    - id: terraform_tflint
+    - id: terraform_checkov
+      args:
+        - --args=--quiet
+        - --args=--compact
+        - --args=--download-external-modules=True

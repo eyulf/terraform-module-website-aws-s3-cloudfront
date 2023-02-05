@@ -1,129 +1,135 @@
-variable "cloudflare_zone_id" {
-  description = "The Cloudflare Zone ID. Not Required if `route53_zoneid` is provided."
-  default     = ""
-  type        = string
-}
-
-variable "cloudfront_default_cache_allowed_methods" {
-  description = "List of allowed methods for the Cloudfront default cache behaviour configuration."
-  default     = ["GET", "HEAD"]
-  type        = list(string)
-}
-
-variable "cloudfront_default_cache_cached_methods" {
-  description = "List of cached_methods for the Cloudfront default cache behaviour configuration."
-  default     = ["GET", "HEAD"]
-  type        = list(string)
-}
-
-variable "cloudfront_default_cache_default_ttl" {
-  description = "The default ttl value for the Cloudfront default cache behaviour configuration."
-  default     = 3600
-  type        = number
-}
-
-variable "cloudfront_default_cache_max_ttl" {
-  description = "The maximum ttl value for the Cloudfront default cache behaviour configuration."
-  default     = 86400
-  type        = number
-}
-
-variable "cloudfront_default_cache_min_ttl" {
-  description = "The minimum ttl value for the Cloudfront default cache behaviour configuration."
-  default     = 0
-  type        = number
-}
-
-variable "cloudfront_price_class" {
-  description = "The price class to use for Cloudfront. Must be one of `PriceClass_All`, `PriceClass_200` or `PriceClass_100`."
-  default     = "PriceClass_All"
-  type        = string
-}
-
-variable "cloudfront_ssl_minimum_protocol" {
-  description = "The minimum SSL protocol to use for the Cloudfront viewer certificate configuration."
-  default     = "TLSv1.2_2019"
-  type        = string
-}
-
-variable "iam_group_create" {
-  description = "When set to `true` this will create and manage the IAM group. When set to `false` it will use a data resource instead."
-  default     = true
-  type        = bool
-}
-
-variable "iam_group_name" {
-  description = "The name of the IAM group that the IAM user will be added to."
-  default     = "s3_uploaders"
-  type        = string
-}
-
-variable "iam_user_create" {
-  description = "When set to `true` this will create and manage the IAM user."
-  default     = true
-  type        = bool
-}
-
-variable "iam_user_keys_create" {
-  description = "When set to `true` this will create and output the Access Key ID and Secret Access Keys for the IAM user."
-  default     = false
-  type        = bool
-}
-
-variable "iam_user_path" {
-  description = "The path used for the IAM user."
-  default     = "/websites/"
-  type        = string
-}
-
-variable "iam_user_prefix_name" {
-  description = "The prefix used at the beginning of the IAM user's name."
-  default     = "s3_uploader"
-  type        = string
-}
-
-variable "route53_zone_id" {
-  description = "The Route53 Zone ID. Not Required if `cloudflare_zone_id` is provided."
-  default     = ""
-  type        = string
-}
-
-variable "s3_cors_allowed_headers" {
-  description = "List of allowed headers for the S3 Bucket's CORS configuration."
-  default     = []
-  type        = list(string)
-}
-
-variable "s3_cors_allowed_methods" {
-  description = "List of allowed methods for the S3 Bucket's CORS configuration."
-  default     = ["GET"]
-  type        = list(string)
-}
-variable "s3_cors_allowed_origins" {
-  description = "List of allowed origins for the S3 Bucket's CORS configuration."
-  default     = []
-  type        = list(string)
-}
-
-variable "s3_cors_expose_headers" {
-  description = "List of expose headers for the S3 Bucket's CORS configuration."
-  default     = []
-  type        = list(string)
-}
-
-variable "s3_lifecycle_noncurrent_expiration" {
-  description = "The number of days after which a non current version of a S3 object will be expired."
-  default     = 30
-  type        = number
-}
-
 variable "website_domain" {
   description = "The primary domain name to use for the website."
   type        = string
 }
 
+variable "website_aliases" {
+  description = "Additional domain names to use for the website."
+  type        = list(string)
+  default     = []
+}
+
 variable "website_redirect_www" {
-  description = "When set to `true` this will create a s3 bucket and cloudfront distribution to redirect www.`website_domain` to `website_domain`."
-  default     = true
+  description = "Include www in the Cloudfront Alias and ACM Certificate as well as add code to redirect www to non-www in the Cloudfront Function."
   type        = bool
+  default     = false
+}
+
+variable "route53_zone_id" {
+  description = "The Route53 Zone ID. If not set DNS records will be returned in outputs."
+  type        = string
+  default     = ""
+}
+
+### S3
+
+variable "s3_cors_allowed_headers" {
+  description = "List of allowed headers for the S3 Bucket's CORS configuration."
+  type        = list(string)
+  default     = []
+}
+
+variable "s3_cors_allowed_methods" {
+  description = "List of allowed methods for the S3 Bucket's CORS configuration."
+  type        = list(string)
+  default     = ["GET"]
+}
+variable "s3_cors_allowed_origins" {
+  description = "List of allowed origins for the S3 Bucket's CORS configuration."
+  type        = list(string)
+  default     = ["*"]
+}
+
+variable "s3_cors_expose_headers" {
+  description = "List of expose headers for the S3 Bucket's CORS configuration."
+  type        = list(string)
+  default     = []
+}
+
+variable "s3_lifecycle_noncurrent_expiration" {
+  description = "The number of days after which a non current version of a S3 object will be expired."
+  type        = number
+  default     = 30
+}
+
+### CloudFront
+
+variable "cloudfront_default_cache_allowed_methods" {
+  description = "List of allowed methods for the CloudFront default cache behaviour configuration."
+  type        = list(string)
+  default     = ["GET", "HEAD"]
+}
+
+variable "cloudfront_default_cache_cached_methods" {
+  description = "List of cached_methods for the CloudFront default cache behaviour configuration."
+  type        = list(string)
+  default     = ["GET", "HEAD"]
+}
+
+variable "cloudfront_price_class" {
+  description = "The price class to use for CloudFront. Must be one of `PriceClass_All`, `PriceClass_200` or `PriceClass_100`."
+  type        = string
+  default     = "PriceClass_All"
+}
+
+variable "cloudfront_ssl_minimum_protocol" {
+  description = "The minimum SSL protocol to use for the CloudFront viewer certificate configuration."
+  type        = string
+  default     = "TLSv1.2_2021"
+}
+
+variable "cloudfront_web_acl_arn" {
+  description = "The ARN of an AWS WAF web ACL to associate with CloudFront."
+  type        = string
+  default     = ""
+}
+
+variable "cloudfront_response_headers_policy_name" {
+  description = "The Name of the Response headers policy to use."
+  type        = string
+  default     = "Managed-CORS-with-preflight-and-SecurityHeadersPolicy"
+}
+
+### OpenID
+
+variable "openid_provider_create" {
+  description = "Create the OpenID Connect Provider."
+  type        = bool
+  default     = false
+}
+
+variable "github_openid_arn" {
+  description = "The ARN for an existing GitHub OpenID Connect provider."
+  type        = string
+  default     = ""
+}
+
+variable "github_repo" {
+  description = "The name of the GitHub repo in the format of 'organisation/repo'."
+  type        = string
+  default     = ""
+}
+
+variable "bitbucket_openid_arn" {
+  description = "The ARN for an existing BitBucket OpenID Connect provider."
+  type        = string
+  default     = ""
+}
+
+variable "bitbucket_workspace_uuid" {
+  description = "BitBucket Workspace UUID."
+  type        = string
+  default     = ""
+}
+
+variable "bitbucket_workspace_name" {
+  description = "The name of the BitBucket workspace."
+  type        = string
+  default     = ""
+}
+
+variable "bitbucket_repo_uuid" {
+  description = "A list of Repo UUID's"
+  type        = string
+  default     = ""
 }
